@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .pixel-art {
+    image-rendering: pixelated;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #333; /* Fallback */
+  font-family: 'Courier New', Courier, monospace;
+  touch-action: none; /* Prevent default touch actions like scroll */
+}
