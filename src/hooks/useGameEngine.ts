@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLeaderboard } from "./useLeaderboard";
 import { useAudio } from "./useAudio";
 import type { DuckFace, GameMode, GameSnapshot } from "../types";
+import { submitScore as submitMinigameScore } from "../utils/minigameApi";
 import {
   COMBO_WINDOW_MS,
   GROUND_HEIGHT,
@@ -28,12 +29,14 @@ import { useGameLoop } from "../components/Game/useGameLoop";
 interface GameSettings {
   muted: boolean;
   playerName: string;
+  playerCode: string;
   duckFace: DuckFace;
 }
 
 const defaultSettings: GameSettings = {
   muted: false,
   playerName: "Player",
+  playerCode: "",
   duckFace: "classic",
 };
 
@@ -93,6 +96,7 @@ export const useGameEngine = () => {
     SETTINGS_KEY,
     defaultSettings,
   );
+  const safePlayerCode = settings.playerCode ?? "";
   const { topTen, addEntry } = useLeaderboard();
 
   const [snapshot, setSnapshot] = useState<GameSnapshot>(() =>
@@ -246,6 +250,13 @@ export const useGameEngine = () => {
     [setSettings],
   );
 
+  const setPlayerCode = useCallback(
+    (code: string) => {
+      setSettings((prev) => ({ ...prev, playerCode: code.trim() }));
+    },
+    [setSettings],
+  );
+
   const setDuckFace = useCallback(
     (duckFace: DuckFace) => {
       setSnapshot((prev) => ({ ...prev, duckFace }));
@@ -255,15 +266,44 @@ export const useGameEngine = () => {
   );
 
   const submitScore = useCallback(
-    (name: string) => {
-      setSnapshot((prev) => {
-        if (prev.score > 0) {
-          addEntry(name.trim() || settings.playerName, prev.score, prev.mode);
-        }
-        return prev;
+    async (name: string, userCode: string, saveLocal: boolean = true) => {
+      const trimmedName = name.trim() || settings.playerName || "Player";
+      const trimmedCode = userCode.trim();
+
+      setSettings((prev) => ({
+        ...prev,
+        playerName: trimmedName,
+        playerCode: trimmedCode,
+      }));
+
+      if (saveLocal && snapshot.score > 0) {
+        addEntry(trimmedName, snapshot.score, snapshot.mode);
+      }
+
+      if (!trimmedCode) {
+        return {
+          ok: false,
+          message: "Player code is required to submit to the server.",
+        };
+      }
+
+      const playTimeSeconds = Math.max(
+        0,
+        Math.round((elapsedPlayTimeRef.current / 1000) * 10) / 10,
+      );
+
+      return submitMinigameScore({
+        userCode: trimmedCode,
+        score: snapshot.score,
+        playTime: playTimeSeconds,
+        metadata: {
+          mode: snapshot.mode,
+          duckFace: snapshot.duckFace,
+          bestScore: snapshot.bestScore,
+        },
       });
     },
-    [addEntry, settings.playerName],
+    [addEntry, setSettings, settings.playerName, snapshot],
   );
 
   const onFrame = useCallback(
@@ -459,6 +499,7 @@ export const useGameEngine = () => {
     snapshot,
     leaderboard: topTen,
     playerName: settings.playerName,
+    playerCode: safePlayerCode,
     startGame,
     restart,
     goToMenu,
@@ -467,6 +508,7 @@ export const useGameEngine = () => {
     toggleMute,
     submitScore,
     setPlayerName,
+    setPlayerCode,
     setDuckFace,
   };
 };

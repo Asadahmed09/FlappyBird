@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import GameCanvas from "../Game/GameCanvas";
 import GameOverModal from "../UI/GameOverModal";
 import Leaderboard from "../UI/Leaderboard";
 import { useGameContext } from "../../contexts/GameContext";
+import { fetchParticipantName } from "../../utils/minigameApi";
+import type { GameMode } from "../../types";
 
 const faceOptions = [
   { id: "classic", label: "Classic" },
@@ -21,6 +23,7 @@ const GameContainer = () => {
     snapshot,
     leaderboard,
     playerName,
+    playerCode,
     startGame,
     restart,
     goToMenu,
@@ -29,14 +32,70 @@ const GameContainer = () => {
     toggleMute,
     submitScore,
     setDuckFace,
+    setPlayerCode,
+    setPlayerName,
   } = useGameContext();
   const [showControls, setShowControls] = useState(false);
+  const [lookupState, setLookupState] = useState<
+    "idle" | "loading" | "ok" | "not-found" | "error"
+  >("idle");
+  const [lookupMessage, setLookupMessage] = useState<string | null>(null);
+  const displayName = playerName?.trim() || "Player";
+  const developerName = "Asad Ahmed";
 
   const isGameActive = useMemo(
     () => snapshot.gameState !== "menu",
     [snapshot.gameState],
   );
   const showStartFade = snapshot.gameState === "ready";
+
+  const isLookingUp = lookupState === "loading";
+  const shouldShowLookupPopup =
+    lookupState === "error" || lookupState === "not-found";
+  const popupMessage = lookupMessage ?? "Unable to validate player code.";
+
+  const handleLookup = useCallback(async (): Promise<boolean> => {
+    const trimmedCode = playerCode.trim();
+    if (!trimmedCode) {
+      setLookupState("error");
+      setLookupMessage("Player code is required.");
+      return false;
+    }
+
+    setLookupState("loading");
+    setLookupMessage(null);
+
+    const result = await fetchParticipantName(trimmedCode);
+    if (result.status === "ok") {
+      setPlayerName(result.fullName);
+      setLookupState("ok");
+      setLookupMessage(`Welcome ${result.fullName}.`);
+      return true;
+    }
+
+    if (result.status === "not-found") {
+      setLookupState("not-found");
+      setLookupMessage("Participant not found.");
+      return false;
+    }
+
+    setLookupState("error");
+    setLookupMessage(result.message);
+    return false;
+  }, [playerCode, setPlayerName]);
+
+  const handleStart = useCallback(
+    async (mode: GameMode) => {
+      if (isLookingUp) {
+        return;
+      }
+      const isValid = await handleLookup();
+      if (isValid) {
+        startGame(mode);
+      }
+    },
+    [handleLookup, isLookingUp, startGame],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -49,7 +108,7 @@ const GameContainer = () => {
       if (isSpace) {
         event.preventDefault();
         if (snapshot.gameState === "menu") {
-          startGame("classic");
+          void handleStart("classic");
           return;
         }
         if (snapshot.gameState === "paused") {
@@ -73,7 +132,7 @@ const GameContainer = () => {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [flap, restart, snapshot.gameState, startGame, toggleMute, togglePause]);
+  }, [flap, handleStart, restart, snapshot.gameState, toggleMute, togglePause]);
 
   const handlePrimaryAction = () => {
     if (snapshot.gameState === "menu" || snapshot.gameState === "gameOver") {
@@ -109,14 +168,28 @@ const GameContainer = () => {
             <p className="mt-3 text-sm text-orange-100/85">
               Smooth flying, fair challenge, pro arcade feel.
             </p>
+            <p className="mt-2 text-base font-semibold text-amber-200">
+              Developer: {developerName}
+            </p>
+            {shouldShowLookupPopup ? (
+              <div
+                className="absolute left-1/2 top-4 w-[90%] -translate-x-1/2 rounded-xl border border-rose-200/40 bg-rose-950/80 px-4 py-3 text-sm text-rose-100 shadow-lg backdrop-blur-sm"
+                role="alert"
+              >
+                {popupMessage}
+              </div>
+            ) : null}
 
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <button
                 type="button"
                 className={`${actionButtonClass} border-orange-200/55 bg-gradient-to-r from-orange-500/85 via-amber-500/70 to-red-500/85 hover:from-orange-400 hover:via-amber-400/80 hover:to-red-400`}
-                onClick={() => startGame("classic")}
+                onClick={() => {
+                  void handleStart("classic");
+                }}
+                disabled={isLookingUp}
               >
-                Start Game
+                {isLookingUp ? "Checking..." : "Start Game"}
               </button>
               <button
                 type="button"
@@ -128,9 +201,12 @@ const GameContainer = () => {
               <button
                 type="button"
                 className={`${actionButtonClass} border-red-200/50 bg-gradient-to-r from-red-600/80 via-rose-600/75 to-orange-600/80 hover:from-red-500 hover:via-rose-500 hover:to-orange-500`}
-                onClick={() => startGame("practice")}
+                onClick={() => {
+                  void handleStart("practice");
+                }}
+                disabled={isLookingUp}
               >
-                Practice
+                {isLookingUp ? "Checking..." : "Practice"}
               </button>
             </div>
 
@@ -163,6 +239,34 @@ const GameContainer = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-orange-100/20 bg-black/30 p-4 text-left">
+              <p className="mb-2 text-xs uppercase tracking-[0.2em] text-orange-100/80">
+                Player Code
+              </p>
+              <input
+                value={playerCode}
+                onChange={(event) => {
+                  setPlayerCode(event.target.value);
+                  setLookupState("idle");
+                  setLookupMessage(null);
+                }}
+                className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none ring-0 focus:border-sky-300"
+                placeholder="Enter your code"
+                maxLength={24}
+              />
+              <p className="mt-2 text-xs text-orange-100/70">
+                Code is checked when you start the game.
+              </p>
+              {lookupState === "ok" && lookupMessage ? (
+                <p className="mt-2 text-xs text-emerald-300">
+                  {lookupMessage}
+                </p>
+              ) : null}
+              <p className="mt-2 text-xs text-orange-100/70">
+                Current pilot: {displayName}
+              </p>
             </div>
 
             <div className="mt-5 text-left">
@@ -202,6 +306,21 @@ const GameContainer = () => {
               >
                 {snapshot.muted ? "Unmute" : "Mute"}
               </button>
+            </div>
+
+            <div className="pointer-events-none absolute right-4 top-4 rounded-xl border border-orange-100/30 bg-gradient-to-r from-black/55 to-red-950/40 px-4 py-2 text-right backdrop-blur-sm sm:right-6 sm:top-5">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-orange-100/80">
+                Pilot
+              </p>
+              <p className="text-sm font-semibold text-orange-50">
+                {displayName}
+              </p>
+              <p className="mt-1 text-[10px] uppercase tracking-[0.25em] text-orange-100/70">
+                Developer
+              </p>
+              <p className="text-xs font-semibold text-amber-200">
+                {developerName}
+              </p>
             </div>
 
             <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-xl border border-orange-100/30 bg-gradient-to-r from-black/55 to-red-950/40 px-5 py-2 text-center backdrop-blur-sm sm:top-5">
@@ -266,6 +385,7 @@ const GameContainer = () => {
             score={snapshot.score}
             bestScore={snapshot.bestScore}
             defaultName={playerName}
+            defaultCode={playerCode}
             onSubmitScore={submitScore}
             onPlayAgain={restart}
             onMainMenu={goToMenu}

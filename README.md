@@ -13,6 +13,7 @@ A modern, responsive Flappy Bird clone built with React, TypeScript, and Tailwin
 - **Leaderboard**: Local storage-based high scores.
 - **Combo System**: Pass pipes quickly to build combos and increase score.
 - **Mobile Friendly**: Touch controls and responsive design.
+- **Minigame API**: Submit scores to the central leaderboard service.
 
 ## Getting Started
 
@@ -30,6 +31,15 @@ A modern, responsive Flappy Bird clone built with React, TypeScript, and Tailwin
     ```bash
     npm run build
     ```
+
+## Minigame API Configuration
+
+The frontend calls the minigame manager API directly. Configure these Vite
+environment variables in Vercel (or locally in a `.env` file):
+
+- `VITE_MINIGAME_API_BASE` (default: `https://minigame-manager-cc533de7be66.herokuapp.com`)
+- `VITE_MINIGAME_API_KEY` (required for score submission)
+- `VITE_MINIGAME_GAME_ID` (required for score submission)
 
 ## Project Structure
 
