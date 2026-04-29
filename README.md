@@ -34,12 +34,18 @@ A modern, responsive Flappy Bird clone built with React, TypeScript, and Tailwin
 
 ## Minigame API Configuration
 
-The frontend calls the minigame manager API directly. Configure these Vite
-environment variables in Vercel (or locally in a `.env` file):
+The production build uses Vercel serverless endpoints at `/api/participants/:code`
+and `/api/scores` to avoid CORS and keep the API key server-side. Configure
+these environment variables in Vercel (Project Settings -> Environment Variables):
 
-- `VITE_MINIGAME_API_BASE` (default: `https://minigame-manager-cc533de7be66.herokuapp.com`)
-- `VITE_MINIGAME_API_KEY` (required for score submission)
-- `VITE_MINIGAME_GAME_ID` (required for score submission)
+- `MINIGAME_API_BASE` (optional, default: `https://minigame-manager-cc533de7be66.herokuapp.com`)
+- `MINIGAME_API_KEY` (required for score submission)
+- `MINIGAME_GAME_ID` (required for score submission)
+
+For local development, run the project with `vercel dev` to use the same proxy
+endpoints. If you cannot use Vercel locally, set
+`VITE_MINIGAME_API_BASE=https://minigame-manager-cc533de7be66.herokuapp.com/api`
+and be aware that browsers may block CORS requests.
 
 ## Project Structure
 
