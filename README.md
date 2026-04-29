@@ -3,7 +3,7 @@
 A modern, responsive Flappy Bird clone built with React, TypeScript, and Tailwind CSS.
 
 ## Features
-
+  
 - **Smooth 60fps Gameplay**: Optimized canvas rendering for high performance.
 - **Multiple Game Modes**:
   - Classic: The original experience.
