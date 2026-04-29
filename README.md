@@ -16,7 +16,7 @@ A modern, responsive Flappy Bird clone built with React, TypeScript, and Tailwin
 - **Minigame API**: Submit scores to the central leaderboard service.
 
 ## Getting Started
-
+  
 1.  **Install Dependencies**
     ```bash
     npm install
